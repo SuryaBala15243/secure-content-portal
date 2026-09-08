@@ -1,0 +1,5 @@
+'use client';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { supabaseBrowser } from '../../lib/supabase';
+export default function ViewerClient({user,items}:{user:any,items:any[]}){const router=useRouter();async function logout(){await supabaseBrowser().auth.signOut();router.push('/login');router.refresh()}return <main className="container"><div className="top"><div><h1>Content Portal</h1><p className="muted">Welcome, {user.name||user.email} · <span className="badge">{user.role}</span></p></div><div style={{display:'flex',gap:8}}>{user.role==='ADMIN'&&<Link href="/admin"><button className="primary">Admin</button></Link>}<button onClick={logout}>Logout</button></div></div><div className="grid">{items.map(i=><Link href={`/content/${i.id}`} key={i.id}><div className="card"><span className="badge">{i.type}</span><h3>{i.title}</h3><p className="muted">{i.description}</p><small>{i.category}</small></div></Link>)}</div>{!items.length&&<div className="card">No content available.</div>}</main>}

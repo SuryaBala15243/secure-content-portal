@@ -1,0 +1,4 @@
+'use client';
+import { useState } from 'react';
+import { supabaseBrowser } from '../../lib/supabase';
+export default function Login(){const [loading,setLoading]=useState(false);const [error,setError]=useState(''); async function login(){setLoading(true);setError('');const supabase=supabaseBrowser();const {error}=await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:`${location.origin}/auth/callback`}});if(error)setError(error.message);setLoading(false)} return <main className="container" style={{maxWidth:520,paddingTop:100}}><div className="card"><h1>Secure Content Portal</h1><p className="muted">Sign in with Google to continue.</p><button className="primary" onClick={login} disabled={loading}>{loading?'Redirecting...':'Continue with Google'}</button>{error&&<p className="error">{error}</p>}</div></main>}

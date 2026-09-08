@@ -1,0 +1,21 @@
+create extension if not exists pgcrypto;
+create type public.user_role as enum ('VIEWER','ADMIN');
+create type public.content_type as enum ('VIDEO','PDF','HTML');
+create table public.profiles (id uuid primary key references auth.users(id) on delete cascade,name text,email text,role public.user_role not null default 'VIEWER',created_at timestamptz default now());
+create table public.content (id uuid primary key default gen_random_uuid(),title text not null,description text not null,category text not null,type public.content_type not null,storage_path text not null unique,created_by uuid references public.profiles(id),created_at timestamptz default now(),updated_at timestamptz default now());
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$ begin insert into public.profiles(id,name,email,role) values(new.id,new.raw_user_meta_data->>'full_name',new.email,'VIEWER') on conflict(id) do nothing; return new; end; $$;
+create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+create or replace function public.is_admin() returns boolean language sql security definer set search_path=public as $$ select exists(select 1 from public.profiles where id=auth.uid() and role='ADMIN'); $$;
+alter table public.profiles enable row level security;
+alter table public.content enable row level security;
+create policy "users read own profile" on public.profiles for select using (id=auth.uid());
+create policy "viewers can read content" on public.content for select using (auth.uid() is not null);
+create policy "admins insert content" on public.content for insert with check (public.is_admin() and created_by=auth.uid());
+create policy "admins update content" on public.content for update using (public.is_admin()) with check (public.is_admin());
+create policy "admins delete content" on public.content for delete using (public.is_admin());
+insert into storage.buckets(id,name,public) values('content','content',false) on conflict(id) do nothing;
+create policy "authenticated can read storage via signed urls" on storage.objects for select using (bucket_id='content' and auth.uid() is not null);
+create policy "admins upload storage" on storage.objects for insert with check (bucket_id='content' and public.is_admin());
+create policy "admins delete storage" on storage.objects for delete using (bucket_id='content' and public.is_admin());
+-- After your first Google login, promote your own user manually:
+-- update public.profiles set role='ADMIN' where email='YOUR_GOOGLE_EMAIL';
